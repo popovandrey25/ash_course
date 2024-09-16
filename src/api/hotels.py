@@ -4,6 +4,7 @@ from sqlalchemy import insert, select
 from src.api.dependencies import PaginationDep
 from src.database import async_session_maker
 from src.models.hotels import HotelsOrm
+from src.repositories.hotels import HotelsRepository
 from src.schemas.hotels import Hotel, HotelPATCH
 
 router = APIRouter(prefix="/hotels", tags=["Отели"])
@@ -12,31 +13,17 @@ router = APIRouter(prefix="/hotels", tags=["Отели"])
 @router.get("")
 async def get_hotels(
         pagination: PaginationDep,
+        location: str | None = Query(None, description="Локация"),
         title: str | None = Query(None, description="Название отеля"),
-        location: str | None = Query(None, description="Местоположение отеля"),
 ):
-    pagination.per_page = pagination.per_page or 5
+    per_page = pagination.per_page or 5
     async with async_session_maker() as session:
-        query = select(HotelsOrm)
-        if title:
-            query = (
-                query
-                .filter(HotelsOrm.title.contains(title))
-            )
-        if location:
-            query = (
-                query
-                .filter(HotelsOrm.location.contains(location))
-            )
-        query = (
-            query
-            .limit(pagination.per_page)
-            .offset(pagination.per_page * (pagination.page-1))
+        return await HotelsRepository(session).get_all(
+            location=location,
+            title=title,
+            limit=per_page,
+            offset=per_page * (pagination.page - 1)
         )
-        result = await session.execute(query)
-
-        hotels = result.scalars().all()
-        return hotels
 
 
 @router.post("")
@@ -58,11 +45,10 @@ async def create_hotel(hotel_data: Hotel = Body(openapi_examples={
 })
 ):
     async with async_session_maker() as session:
-        add_hotel_stmt = insert(HotelsOrm).values(**hotel_data.model_dump())
-        await session.execute(add_hotel_stmt)
+        hotel = await HotelsRepository(session).add(hotel_data)
         await session.commit()
 
-    return {"status": "OK"}
+    return {"status": "OK", "data": hotel}
 
 
 @router.put("/{hotel_id}")
