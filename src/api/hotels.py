@@ -80,7 +80,9 @@ def partially_edit_hotel(
 
 
 @router.delete("/{hotel_id}")
-def delete_hotel(hotel_id: int):
-    global hotels
-    hotels = [hotel for hotel in hotels if hotel["id"] != hotel_id]
+async def delete_hotel(hotel_id: int):
+    async with async_session_maker() as session:
+        await HotelsRepository(session).delete(HotelsOrm.id==hotel_id)
+        await session.commit()
+
     return {"status": "OK"}
