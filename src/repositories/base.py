@@ -27,11 +27,13 @@ class BaseRepository:
         result = await self.session.execute(add_object_stmt)
         return result.scalars().one()
 
-    async def edit(self, model_data: BaseModel, **filter_by):
+    async def edit(
+        self, model_data: BaseModel, exclude_unset: bool = False, **filter_by
+    ):
         update_stmt = (
             update(self.model)
             .filter_by(**filter_by)
-            .values(**model_data.model_dump())
+            .values(**model_data.model_dump(exclude_unset=exclude_unset))
         )
         await self.session.execute(update_stmt)
 
