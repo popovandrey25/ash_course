@@ -1,4 +1,8 @@
-from fastapi import APIRouter
+from datetime import datetime, timedelta, timezone
+from typing import Annotated
+
+import jwt
+from fastapi import APIRouter, HTTPException
 from passlib.context import CryptContext
 
 from src.database import async_session_maker
@@ -8,6 +12,17 @@ from src.schemas.users import UserRequestAdd, UserAdd
 router = APIRouter(prefix='/auth', tags=['Авторизация и аутентификация'])
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+SECRET_KEY = '325h4h3k45k34k523v45gv32v45v2345h3452vk'
+ALGORITHM = 'HS256'
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+
+def create_access_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 
 @router.post('/register')
@@ -18,3 +33,19 @@ async def register_user(data: UserRequestAdd):
         await UsersRepository(session).add(new_data)
         await session.commit()
     return {"status": "OK"}
+
+
+@router.post('/login')
+async def login_user(data: UserRequestAdd):
+    hashed_password = pwd_context.hash(data.password)
+    async with async_session_maker() as session:
+        user = await UsersRepository(session).get_one_or_none(
+            email=data.email
+        )
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail='Пользователь с таким мылом не зарегистрирован'
+            )
+        access_token = create_access_token({"user_id": user.id})
+    return {"access_token": access_token}
