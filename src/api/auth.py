@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from passlib.context import CryptContext
 
 from src.database import async_session_maker
@@ -15,6 +15,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = '325h4h3k45k34k523v45gv32v45v2345h3452vk'
 ALGORITHM = 'HS256'
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 def create_access_token(data: dict) -> str:
@@ -36,10 +40,9 @@ async def register_user(data: UserRequestAdd):
 
 
 @router.post('/login')
-async def login_user(data: UserRequestAdd):
-    hashed_password = pwd_context.hash(data.password)
+async def login_user(data: UserRequestAdd, response: Response):
     async with async_session_maker() as session:
-        user = await UsersRepository(session).get_one_or_none(
+        user = await UsersRepository(session).get_user_with_hashed_password(
             email=data.email
         )
         if not user:
@@ -47,5 +50,8 @@ async def login_user(data: UserRequestAdd):
                 status_code=401,
                 detail='Пользователь с таким мылом не зарегистрирован'
             )
+        if not verify_password(data.password, user.hashed_password):
+            raise HTTPException(status_code=401, detail="Пароль неверный")
         access_token = create_access_token({"user_id": user.id})
+        response.set_cookie("access_token", access_token)
     return {"access_token": access_token}
