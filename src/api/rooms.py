@@ -11,7 +11,7 @@ router = APIRouter(prefix='/hotels', tags=['Номера'])
 @router.get('/{hotel_id}/rooms')
 async def get_rooms(hotel_id: int):
     async with async_session_maker() as session:
-        return await RoomsRepository(session).get_all(hotel_id=hotel_id)
+        return await RoomsRepository(session).get_filtered(hotel_id=hotel_id)
 
 
 @router.get('/{hotel_id}/rooms/{room_id}')
