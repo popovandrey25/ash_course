@@ -17,6 +17,7 @@ async def register_user(data: UserRequestAdd, db: DBDep):
     return {"status": "OK"}
 
 
+@router.post("/login")
 async def login_user(
     data: UserRequestAdd,
     response: Response,
